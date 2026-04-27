@@ -1,0 +1,38 @@
+services:
+  api:
+    build:
+      context: .
+    container_name: ai-sql-analyst-api
+    environment:
+      AI_SQL_ANALYST_DATABASE_BACKEND: postgres
+      AI_SQL_ANALYST_POSTGRES_DSN: postgresql://ai_sql:ai_sql_password@postgres:5432/ai_sql_analyst
+      AI_SQL_ANALYST_QUERY_LOG_PATH: /app/data/query_log.jsonl
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ai_sql_analyst_appdata:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-sql-analyst-postgres
+    environment:
+      POSTGRES_DB: ai_sql_analyst
+      POSTGRES_USER: ai_sql
+      POSTGRES_PASSWORD: ai_sql_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ai_sql_analyst_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_sql -d ai_sql_analyst"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ai_sql_analyst_appdata:
+  ai_sql_analyst_pgdata:

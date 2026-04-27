@@ -1,0 +1,36 @@
+name: AI SQL Analyst CI
+
+on:
+  push:
+    paths:
+      - "ai-sql-analyst/**"
+      - ".github/workflows/ai-sql-analyst-ci.yml"
+  pull_request:
+    paths:
+      - "ai-sql-analyst/**"
+      - ".github/workflows/ai-sql-analyst-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai-sql-analyst
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests -q
+
+      - name: Run text-to-SQL evals
+        run: python manage.py evals

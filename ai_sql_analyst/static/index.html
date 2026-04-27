@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI SQL Analyst</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">SQL</div>
+          <div>
+            <h1>AI SQL Analyst</h1>
+            <p>Text-to-SQL analytics console</p>
+          </div>
+        </div>
+
+        <section class="side-section">
+          <div class="section-label">System</div>
+          <dl class="metric-list">
+            <div>
+              <dt>Queries</dt>
+              <dd id="metric-total">0</dd>
+            </div>
+            <div>
+              <dt>Avg latency</dt>
+              <dd id="metric-latency">0 ms</dd>
+            </div>
+            <div>
+              <dt>Fallback rate</dt>
+              <dd id="metric-fallback">0%</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="side-section">
+          <div class="section-label">Recent Questions</div>
+          <div id="history-list" class="history-list"></div>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <section class="query-panel">
+          <div>
+            <p class="eyebrow">SaaS warehouse</p>
+            <h2>Ask a business question</h2>
+          </div>
+          <form id="query-form" class="query-form">
+            <textarea
+              id="question-input"
+              name="question"
+              rows="3"
+              placeholder="Show the top customers by revenue"
+            ></textarea>
+            <div class="query-actions">
+              <div class="sample-buttons">
+                <button type="button" data-question="Show monthly revenue trend">Monthly revenue</button>
+                <button type="button" data-question="How many support tickets were opened by priority?">Tickets</button>
+                <button type="button" data-question="Break down revenue by customer segment">Segments</button>
+              </div>
+              <button class="primary-button" type="submit">Run query</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="status-strip" aria-live="polite">
+          <div>
+            <span class="status-label">Mode</span>
+            <strong id="mode-value">checking</strong>
+          </div>
+          <div>
+            <span class="status-label">Rows</span>
+            <strong id="row-count">0</strong>
+          </div>
+          <div>
+            <span class="status-label">Latency</span>
+            <strong id="latency-value">0 ms</strong>
+          </div>
+          <div>
+            <span class="status-label">Eval pass rate</span>
+            <strong id="eval-rate">not run</strong>
+          </div>
+          <button id="run-evals" type="button">Run evals</button>
+        </section>
+
+        <section class="results-grid">
+          <div class="result-main">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Answer</p>
+                <h3 id="summary-title">Ready</h3>
+              </div>
+              <span id="query-id" class="query-id"></span>
+            </div>
+            <p id="summary-text" class="summary-text">Run a question to generate SQL, execute it safely, and inspect the result.</p>
+            <div id="warnings" class="warnings"></div>
+            <div class="table-wrap">
+              <table id="result-table">
+                <thead></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="inspector">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Generated SQL</p>
+                <h3>Query Plan</h3>
+              </div>
+            </div>
+            <pre id="sql-output">SELECT ...</pre>
+            <div class="chart-panel">
+              <div class="panel-header compact">
+                <h3 id="chart-title">Chart</h3>
+                <span id="chart-kind">none</span>
+              </div>
+              <div id="chart" class="chart"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="eval-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Quality</p>
+              <h3>Evaluation Results</h3>
+            </div>
+          </div>
+          <div id="eval-results" class="eval-results"></div>
+        </section>
+      </main>
+    </div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
