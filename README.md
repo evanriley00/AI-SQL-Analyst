@@ -1,126 +1,76 @@
 # AI SQL Analyst
 
-AI SQL Analyst is a recruiter-readable portfolio project for natural-language analytics over structured business data.
+Production-style text-to-SQL analytics app for asking business questions over structured SaaS data.
 
-It is designed to show:
-- Text-to-SQL application engineering
-- SQL guardrails and safe query execution
-- Schema-aware prompting
-- FastAPI backend development
-- Observable analytics workflows
-- PostgreSQL-backed application architecture
-- Dockerized local infrastructure
-- Kubernetes manifests with probes, services, secrets, and autoscaling
-- Terraform Kubernetes deployment option
-- Automated tests and text-to-SQL evals
+![AI SQL Analyst console](docs/assets/ai-sql-analyst-console.png)
 
-## What It Does
+## Why This Project Exists
 
-The app accepts plain-English analytics questions such as:
+AI SQL Analyst is built to demonstrate practical AI engineering plus real software engineering: FastAPI service design, SQL guardrails, Postgres-backed data access, auth, workspace scoping, Docker, Kubernetes, Terraform, CI, observability, and automated text-to-SQL evals.
 
-- `Why did revenue drop last month?`
+It answers questions like:
+
 - `Show the top customers by revenue`
-- `How many support tickets were opened by priority this quarter?`
+- `Show monthly revenue trend`
+- `How many support tickets were opened by priority?`
+- `Break down revenue by customer segment`
 
-It then:
-- Reads the available database schema and metric definitions
-- Generates a SQL query from the user question
-- Validates the SQL to block unsafe statements
-- Executes the query against a demo analytics database
-- Returns the SQL, rows, and an analyst-style summary
+## Technical Highlights
 
-## Current Application
+- **AI application layer:** Natural-language questions are converted into SQL using an LLM when configured, with deterministic fallback for repeatable demos and tests.
+- **SQL safety:** Generated SQL is validated as read-only, blocked from unknown tables, limited by row count, and scoped by `workspace_id`.
+- **Backend:** FastAPI, Pydantic models, service-layer separation, health checks, API docs, and static app serving.
+- **Data layer:** SQLite fallback for quick local work and PostgreSQL support for production-style deployment.
+- **Product surface:** Analyst console with query input, generated SQL, result table, chart preview, query history, metrics, and eval runner.
+- **Auth and tenancy:** Protected endpoints use `X-API-Key`; requests include `workspace_id` and guardrails inject workspace predicates.
+- **Operations:** Dockerfile, Docker Compose, Kubernetes manifests, Terraform example, liveness/readiness probes, HPA, and CI.
+- **Quality:** Unit/API tests, SQL guardrail tests, text-to-SQL eval suite, and GitHub Actions with Postgres integration.
 
-- FastAPI API
-- PostgreSQL warehouse via Docker Compose
-- SQLite fallback for quick local development
-- Natural-language to SQL pipeline
-- SQL guardrails that allow read-only queries
-- Schema context endpoint
-- Query logging with latency and row counts
-- Heuristic fallback when no OpenAI API key is configured
-- Analyst console served by the API
-- Query history and aggregate system metrics
-- API key authentication
-- Workspace-scoped SQL guardrails for multi-tenant analytics
-- Built-in SQL evaluation suite
-- Automated tests for API behavior and guardrails
-- CI workflow for tests, evals, and Postgres integration
+## Architecture
 
-## Project Structure
-
-```text
-ai-sql-analyst/
-  ai_sql_analyst/
-    config.py
-    main.py
-    models.py
-    db/
-      migrations.py
-      seeds.py
-    services/
-      database.py
-      evaluation.py
-      query_service.py
-      sql_guardrails.py
-    static/
-      app.js
-      index.html
-      styles.css
-  tests/
-  k8s/
-    base/
-  terraform/
-    kubernetes/
-  evals.py
-  manage.py
-  docker-compose.yml
-  Dockerfile
-  data/
-    demo_warehouse.db
-    query_log.jsonl
-  .env.example
-  requirements.txt
+```mermaid
+flowchart LR
+    UI[Analyst Console] --> API[FastAPI API]
+    API --> Auth[API Key Auth]
+    API --> Generator[LLM or Fallback SQL Generator]
+    Generator --> Guardrails[Read-only SQL Guardrails]
+    Guardrails --> Scope[Workspace Scope Injection]
+    Scope --> DB[(SQLite or PostgreSQL)]
+    API --> Logs[Query Log and Metrics]
+    API --> Evals[Text-to-SQL Eval Suite]
 ```
+
+See [Architecture](docs/ARCHITECTURE.md) for the deeper walkthrough.
 
 ## Quick Start
 
-### Option A: Run With SQLite
+### SQLite
 
 ```bash
-pip install -r ai-sql-analyst/requirements.txt
-python ai-sql-analyst/manage.py init-db
-uvicorn ai_sql_analyst.main:app --reload --app-dir ai-sql-analyst
+pip install -r requirements.txt
+python manage.py init-db
+uvicorn ai_sql_analyst.main:app --reload
 ```
 
-Then open:
+Open:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-### Option B: Run With PostgreSQL
+### PostgreSQL With Docker Compose
 
 ```bash
-cd ai-sql-analyst
 docker compose up --build
 ```
 
-The API will run at:
+The app runs at:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-The Compose stack starts:
-- `api`: FastAPI application
-- `postgres`: PostgreSQL 16 warehouse
-
-### Configuration
-
-Copy `ai-sql-analyst/.env.example` into `.env` or set environment variables directly.
-
-Key options:
+## Configuration
 
 ```bash
 AI_SQL_ANALYST_DATABASE_BACKEND=sqlite
@@ -130,151 +80,69 @@ AI_SQL_ANALYST_BROWSER_API_KEY=dev-api-key
 OPENAI_API_KEY=your-key-here
 ```
 
-If no OpenAI key is set, the app still works with deterministic SQL fallback for common analytics questions.
-
-### Database Management
-
-Apply migrations and seed the configured database:
-
-```bash
-python ai-sql-analyst/manage.py init-db
-```
-
-Run the eval suite:
-
-```bash
-python ai-sql-analyst/manage.py evals
-```
+If no OpenAI key is set, the app uses deterministic fallback SQL for common analytics questions.
 
 ## API
 
-### `GET /health`
-
-Returns service status and whether the LLM-backed SQL generator is enabled.
-
-### `GET /schema`
-
-Returns the schema reference used to ground SQL generation.
-
-### `POST /ask`
-
-Request:
-
-```json
-{
-  "question": "Show the top 5 customers by revenue",
-  "workspace_id": "demo"
-}
-```
-
-Protected API endpoints require:
+Protected endpoints require:
 
 ```text
 X-API-Key: dev-api-key
 ```
 
-### `GET /history`
+Example:
 
-Returns recent query log entries.
+```bash
+curl -X POST http://127.0.0.1:8000/ask \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-api-key" \
+  -d "{\"question\":\"Show the top customers by revenue\", \"workspace_id\":\"demo\"}"
+```
 
-### `GET /metrics`
+Core endpoints:
 
-Returns aggregate usage telemetry, including total queries, fallback rate, average latency, and recent questions.
-
-### `POST /evals/run`
-
-Runs the built-in text-to-SQL evaluation suite.
+- `GET /health`
+- `GET /schema`
+- `POST /ask`
+- `GET /history`
+- `GET /metrics`
+- `POST /evals/run`
 
 ## Verification
 
-Run the automated tests:
-
 ```bash
-pytest ai-sql-analyst/tests
+pytest tests -q
+python manage.py evals
+kubectl kustomize k8s/base
+docker compose config
 ```
 
-Run the eval suite directly:
+Current local verification:
 
-```bash
-python ai-sql-analyst/evals.py
+```text
+tests: 11 passed
+eval suite: 6/6 passed
+kubectl kustomize: ok
+docker compose config: ok
 ```
 
-The GitHub Actions workflow in `.github/workflows/ai-sql-analyst-ci.yml` runs both tests and evals.
+## Deployment
 
-## Kubernetes
+- Docker Compose: [docker-compose.yml](docker-compose.yml)
+- Kubernetes: [k8s/base](k8s/base)
+- Terraform Kubernetes example: [terraform/kubernetes](terraform/kubernetes)
+- CI: [.github/workflows/ai-sql-analyst-ci.yml](.github/workflows/ai-sql-analyst-ci.yml)
 
-The Kubernetes base manifests live in `k8s/base`.
+See [Deployment](docs/DEPLOYMENT.md) for commands and environment notes.
 
-Apply with Kustomize:
+## Project Docs
 
-```bash
-kubectl apply -k ai-sql-analyst/k8s/base
-```
+- [Architecture](docs/ARCHITECTURE.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Demo Walkthrough](docs/DEMO.md)
+- [Resume Bullets](docs/RESUME.md)
+- [Roadmap](docs/ROADMAP.md)
 
-The base includes:
-- Namespace
-- ConfigMap
-- Secret example
-- PostgreSQL StatefulSet and Service
-- API Deployment and Service
-- Readiness and liveness probes
-- HorizontalPodAutoscaler
-- Optional ingress example
+## Tech Stack
 
-For a real environment, replace `k8s/base/secret.example.yaml` with a sealed secret, external secret, or cluster-managed secret.
-
-## Terraform
-
-The Terraform Kubernetes example lives in `terraform/kubernetes`.
-
-```bash
-cd ai-sql-analyst/terraform/kubernetes
-terraform init
-terraform plan \
-  -var="api_keys=replace-me" \
-  -var="postgres_password=replace-me"
-```
-
-This provisions the namespace, app config, secret, PostgreSQL StatefulSet, and API Deployment/Service into an existing Kubernetes cluster.
-
-Response shape:
-
-```json
-{
-  "query_id": "abc123def456",
-  "created_at": "2026-04-27T15:11:33.148303+00:00",
-  "question": "Show the top 5 customers by revenue",
-  "sql": "SELECT ...",
-  "summary": "Northstar Health generated the highest revenue in the sample data.",
-  "columns": ["customer_name", "total_revenue"],
-  "rows": [
-    ["Northstar Health", 12400.0]
-  ],
-  "row_count": 5,
-  "latency_ms": 42,
-  "used_fallback": false,
-  "chart": {
-    "chart_type": "bar",
-    "x": "customer_name",
-    "y": "total_revenue",
-    "title": "Revenue analysis"
-  },
-  "warnings": []
-}
-```
-
-## Demo Schema
-
-The seeded database models a lightweight B2B SaaS analytics warehouse:
-
-- `customers`
-- `invoices`
-- `support_tickets`
-
-This keeps the project business-facing and makes the SQL portfolio signal much clearer than another generic chatbot demo.
-
-## Next Up
-
-- Role-based workspace permissions
-- Retrieval over metric definitions and BI docs
-- Cloud deployment walkthrough
+Python, FastAPI, Pydantic, PostgreSQL, SQLite, Docker, Docker Compose, Kubernetes, Kustomize, Terraform, GitHub Actions, HTML, CSS, JavaScript, OpenAI-compatible LLM integration.
