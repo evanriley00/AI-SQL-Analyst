@@ -34,3 +34,48 @@ jobs:
 
       - name: Run text-to-SQL evals
         run: python manage.py evals
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ai_sql_analyst
+          POSTGRES_USER: ai_sql
+          POSTGRES_PASSWORD: ai_sql_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ai_sql -d ai_sql_analyst"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: ai-sql-analyst
+
+    env:
+      AI_SQL_ANALYST_DATABASE_BACKEND: postgres
+      AI_SQL_ANALYST_POSTGRES_DSN: postgresql://ai_sql:ai_sql_password@localhost:5432/ai_sql_analyst
+      AI_SQL_ANALYST_API_KEYS: dev-api-key
+      AI_SQL_ANALYST_BROWSER_API_KEY: dev-api-key
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Initialize Postgres schema
+        run: python manage.py init-db
+
+      - name: Run evals against Postgres
+        run: python manage.py evals

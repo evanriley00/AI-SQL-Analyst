@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=500)
+    workspace_id: str = Field(default="demo", min_length=1, max_length=64)
 
 
 class ChartSpec(BaseModel):
@@ -35,6 +36,7 @@ class HealthResponse(BaseModel):
     llm_enabled: bool
     database_backend: str
     database_path: str
+    auth_enabled: bool
 
 
 class SchemaResponse(BaseModel):
@@ -45,6 +47,7 @@ class SchemaResponse(BaseModel):
 class QueryLogEntry(BaseModel):
     query_id: str
     timestamp: str
+    workspace_id: str
     question: str
     sql: str
     row_count: int
@@ -77,3 +80,8 @@ class EvalSuiteResponse(BaseModel):
     failed: int
     pass_rate: float
     results: list[EvalCaseResult]
+
+
+class ClientConfigResponse(BaseModel):
+    browser_api_key: str
+    default_workspace_id: str

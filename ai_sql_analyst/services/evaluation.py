@@ -48,10 +48,10 @@ EVAL_CASES = (
 )
 
 
-def run_eval_suite() -> EvalSuiteResponse:
+def run_eval_suite(*, workspace_id: str = "demo") -> EvalSuiteResponse:
     results: list[EvalCaseResult] = []
     for case in EVAL_CASES:
-        response = answer_question(case.question, force_fallback=True)
+        response = answer_question(case.question, workspace_id=workspace_id, force_fallback=True)
         lowered_sql = response.sql.lower()
         failures: list[str] = []
         checks: list[str] = []

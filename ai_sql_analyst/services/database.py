@@ -18,6 +18,7 @@ SCHEMA_REFERENCE = """# Warehouse Schema
 
 ## customers
 - customer_id: integer primary key
+- workspace_id: text tenant/workspace identifier
 - customer_name: text
 - segment: text
 - region: text in US sales regions
@@ -25,6 +26,7 @@ SCHEMA_REFERENCE = """# Warehouse Schema
 
 ## invoices
 - invoice_id: integer primary key
+- workspace_id: text tenant/workspace identifier
 - customer_id: integer foreign key to customers.customer_id
 - invoice_month: date, first day of month
 - amount_usd: numeric revenue amount
@@ -32,6 +34,7 @@ SCHEMA_REFERENCE = """# Warehouse Schema
 
 ## support_tickets
 - ticket_id: integer primary key
+- workspace_id: text tenant/workspace identifier
 - customer_id: integer foreign key to customers.customer_id
 - created_at: date
 - priority: text
@@ -119,6 +122,7 @@ def initialize_database() -> None:
 
     with get_connection() as connection:
         apply_migrations(connection, backend=backend)
+        ensure_workspace_columns(connection, backend=backend)
         seed_database(connection, backend=backend)
         connection.commit()
 
@@ -139,25 +143,63 @@ def seed_database(connection: ConnectionLike, *, backend: str) -> None:
 
     connection.executemany(
         f"""
-        INSERT INTO customers (customer_id, customer_name, segment, region, signup_date)
-        VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
+        INSERT INTO customers (customer_id, workspace_id, customer_name, segment, region, signup_date)
+        VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
         """,
         CUSTOMERS,
     )
     connection.executemany(
         f"""
-        INSERT INTO invoices (invoice_id, customer_id, invoice_month, amount_usd, plan_name)
-        VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
+        INSERT INTO invoices (invoice_id, workspace_id, customer_id, invoice_month, amount_usd, plan_name)
+        VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
         """,
         INVOICES,
     )
     connection.executemany(
         f"""
-        INSERT INTO support_tickets (ticket_id, customer_id, created_at, priority, status, resolution_hours)
-        VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
+        INSERT INTO support_tickets (ticket_id, workspace_id, customer_id, created_at, priority, status, resolution_hours)
+        VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
         """,
         SUPPORT_TICKETS,
     )
+
+
+def ensure_workspace_columns(connection: ConnectionLike, *, backend: str) -> None:
+    for table_name in list_tables():
+        if column_exists(connection, backend=backend, table_name=table_name, column_name="workspace_id"):
+            continue
+        if backend == "postgres":
+            connection.execute(
+                f"ALTER TABLE {table_name} ADD COLUMN workspace_id TEXT NOT NULL DEFAULT 'demo'"
+            )
+        else:
+            connection.execute(
+                f"ALTER TABLE {table_name} ADD COLUMN workspace_id TEXT NOT NULL DEFAULT 'demo'"
+            )
+
+
+def column_exists(
+    connection: ConnectionLike,
+    *,
+    backend: str,
+    table_name: str,
+    column_name: str,
+) -> bool:
+    if backend == "postgres":
+        cursor = connection.execute(
+            """
+            SELECT COUNT(*) AS row_count
+            FROM information_schema.columns
+            WHERE table_name = %s AND column_name = %s
+            """,
+            (table_name, column_name),
+        )
+        row = cursor.fetchone()
+        return int(row["row_count"] if isinstance(row, dict) else row[0]) > 0
+
+    cursor = connection.execute(f"PRAGMA table_info({table_name})")
+    rows = cursor.fetchall()
+    return any(row["name"] == column_name for row in rows)
 
 
 def table_has_rows(connection: ConnectionLike, *, table_name: str) -> bool:

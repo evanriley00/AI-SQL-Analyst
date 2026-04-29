@@ -12,6 +12,7 @@ def test_answers_top_customers_question() -> None:
     assert response.row_count >= 1
     assert "customers" in response.sql.lower()
     assert "invoices" in response.sql.lower()
+    assert "workspace_id" in response.sql.lower()
     assert response.columns
     assert response.chart is not None
 

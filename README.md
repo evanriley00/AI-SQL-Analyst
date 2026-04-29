@@ -10,6 +10,8 @@ It is designed to show:
 - Observable analytics workflows
 - PostgreSQL-backed application architecture
 - Dockerized local infrastructure
+- Kubernetes manifests with probes, services, secrets, and autoscaling
+- Terraform Kubernetes deployment option
 - Automated tests and text-to-SQL evals
 
 ## What It Does
@@ -39,9 +41,11 @@ It then:
 - Heuristic fallback when no OpenAI API key is configured
 - Analyst console served by the API
 - Query history and aggregate system metrics
+- API key authentication
+- Workspace-scoped SQL guardrails for multi-tenant analytics
 - Built-in SQL evaluation suite
 - Automated tests for API behavior and guardrails
-- CI workflow for tests and evals
+- CI workflow for tests, evals, and Postgres integration
 
 ## Project Structure
 
@@ -64,6 +68,10 @@ ai-sql-analyst/
       index.html
       styles.css
   tests/
+  k8s/
+    base/
+  terraform/
+    kubernetes/
   evals.py
   manage.py
   docker-compose.yml
@@ -117,6 +125,8 @@ Key options:
 ```bash
 AI_SQL_ANALYST_DATABASE_BACKEND=sqlite
 AI_SQL_ANALYST_POSTGRES_DSN=postgresql://ai_sql:ai_sql_password@localhost:5432/ai_sql_analyst
+AI_SQL_ANALYST_API_KEYS=dev-api-key
+AI_SQL_ANALYST_BROWSER_API_KEY=dev-api-key
 OPENAI_API_KEY=your-key-here
 ```
 
@@ -152,8 +162,15 @@ Request:
 
 ```json
 {
-  "question": "Show the top 5 customers by revenue"
+  "question": "Show the top 5 customers by revenue",
+  "workspace_id": "demo"
 }
+```
+
+Protected API endpoints require:
+
+```text
+X-API-Key: dev-api-key
 ```
 
 ### `GET /history`
@@ -183,6 +200,42 @@ python ai-sql-analyst/evals.py
 ```
 
 The GitHub Actions workflow in `.github/workflows/ai-sql-analyst-ci.yml` runs both tests and evals.
+
+## Kubernetes
+
+The Kubernetes base manifests live in `k8s/base`.
+
+Apply with Kustomize:
+
+```bash
+kubectl apply -k ai-sql-analyst/k8s/base
+```
+
+The base includes:
+- Namespace
+- ConfigMap
+- Secret example
+- PostgreSQL StatefulSet and Service
+- API Deployment and Service
+- Readiness and liveness probes
+- HorizontalPodAutoscaler
+- Optional ingress example
+
+For a real environment, replace `k8s/base/secret.example.yaml` with a sealed secret, external secret, or cluster-managed secret.
+
+## Terraform
+
+The Terraform Kubernetes example lives in `terraform/kubernetes`.
+
+```bash
+cd ai-sql-analyst/terraform/kubernetes
+terraform init
+terraform plan \
+  -var="api_keys=replace-me" \
+  -var="postgres_password=replace-me"
+```
+
+This provisions the namespace, app config, secret, PostgreSQL StatefulSet, and API Deployment/Service into an existing Kubernetes cluster.
 
 Response shape:
 
@@ -222,6 +275,6 @@ This keeps the project business-facing and makes the SQL portfolio signal much c
 
 ## Next Up
 
-- Role-based query scopes
+- Role-based workspace permissions
 - Retrieval over metric definitions and BI docs
-- Cloud deployment and infrastructure as code
+- Cloud deployment walkthrough

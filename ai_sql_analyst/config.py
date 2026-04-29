@@ -34,8 +34,13 @@ class Settings(BaseSettings):
         default="postgresql://ai_sql:ai_sql_password@localhost:5432/ai_sql_analyst",
         alias="AI_SQL_ANALYST_POSTGRES_DSN",
     )
+    api_keys: str = Field(default="dev-api-key", alias="AI_SQL_ANALYST_API_KEYS")
+    browser_api_key: str = Field(default="dev-api-key", alias="AI_SQL_ANALYST_BROWSER_API_KEY")
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     model_name: str = Field(default="gpt-5-mini", alias="AI_SQL_ANALYST_MODEL")
+
+    def allowed_api_keys(self) -> set[str]:
+        return {key.strip() for key in self.api_keys.split(",") if key.strip()}
 
 
 settings = Settings()

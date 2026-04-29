@@ -2,3 +2,7 @@ data/*.db
 data/*.jsonl
 __pycache__/
 .pytest_cache/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars

@@ -12,15 +12,20 @@ from ai_sql_analyst.services.database import SCHEMA_REFERENCE, active_backend, e
 from ai_sql_analyst.services.sql_guardrails import validate_read_only_sql
 
 
-def generate_sql(question: str, *, force_fallback: bool = False) -> tuple[str, bool]:
+def generate_sql(
+    question: str,
+    *,
+    workspace_id: str = "demo",
+    force_fallback: bool = False,
+) -> tuple[str, bool]:
     if settings.openai_api_key and not force_fallback:
-        sql = _generate_sql_with_openai(question)
+        sql = _generate_sql_with_openai(question, workspace_id=workspace_id)
         if sql:
             return sql, False
     return _generate_sql_with_fallback(question), True
 
 
-def _generate_sql_with_openai(question: str) -> str:
+def _generate_sql_with_openai(question: str, *, workspace_id: str) -> str:
     payload = {
         "model": settings.model_name,
         "input": [
@@ -32,7 +37,8 @@ def _generate_sql_with_openai(question: str) -> str:
                         "text": (
                             f"You translate business analytics questions into one safe {active_backend()} SELECT query. "
                             "Return only SQL with no markdown. Use only the schema provided. "
-                            "Do not use write statements, temp tables, stored procedures, or vendor-specific extensions."
+                            "Do not use write statements, temp tables, stored procedures, or vendor-specific extensions. "
+                            f"Only answer for workspace_id '{workspace_id}'."
                         ),
                     }
                 ],
@@ -40,7 +46,14 @@ def _generate_sql_with_openai(question: str) -> str:
             {
                 "role": "user",
                 "content": [
-                    {"type": "input_text", "text": f"{SCHEMA_REFERENCE}\n\nQuestion: {question}"},
+                    {
+                        "type": "input_text",
+                        "text": (
+                            f"{SCHEMA_REFERENCE}\n\n"
+                            f"Workspace scope: {workspace_id}\n"
+                            f"Question: {question}"
+                        ),
+                    },
                 ],
             },
         ],
@@ -255,6 +268,7 @@ def log_query(
     *,
     query_id: str,
     timestamp: str,
+    workspace_id: str,
     question: str,
     sql: str,
     row_count: int,
@@ -265,6 +279,7 @@ def log_query(
     payload = {
         "query_id": query_id,
         "timestamp": timestamp,
+        "workspace_id": workspace_id,
         "question": question,
         "sql": sql,
         "row_count": row_count,
@@ -275,18 +290,28 @@ def log_query(
         handle.write(json.dumps(payload) + "\n")
 
 
-def answer_question(question: str, *, force_fallback: bool = False) -> AskResponse:
+def answer_question(
+    question: str,
+    *,
+    workspace_id: str = "demo",
+    force_fallback: bool = False,
+) -> AskResponse:
     started = time.perf_counter()
     query_id = uuid4().hex[:12]
     created_at = datetime.now(timezone.utc).isoformat()
-    sql, used_fallback = generate_sql(question, force_fallback=force_fallback)
-    safe_sql = validate_read_only_sql(sql)
+    sql, used_fallback = generate_sql(
+        question,
+        workspace_id=workspace_id,
+        force_fallback=force_fallback,
+    )
+    safe_sql = validate_read_only_sql(sql, workspace_id=workspace_id)
     columns, rows = execute_query(safe_sql)
     latency_ms = int((time.perf_counter() - started) * 1000)
     summary = summarize_result(question, columns, rows)
     log_query(
         query_id=query_id,
         timestamp=created_at,
+        workspace_id=workspace_id,
         question=question,
         sql=safe_sql,
         row_count=len(rows),
@@ -309,7 +334,7 @@ def answer_question(question: str, *, force_fallback: bool = False) -> AskRespon
     )
 
 
-def load_query_log(limit: int = 25) -> list[QueryLogEntry]:
+def load_query_log(limit: int = 25, *, workspace_id: str | None = None) -> list[QueryLogEntry]:
     if not settings.query_log_path.exists():
         return []
 
@@ -326,6 +351,7 @@ def load_query_log(limit: int = 25) -> list[QueryLogEntry]:
                 QueryLogEntry(
                     query_id=str(payload.get("query_id", "")),
                     timestamp=str(payload.get("timestamp", "")),
+                    workspace_id=str(payload.get("workspace_id", "demo")),
                     question=str(payload.get("question", "")),
                     sql=str(payload.get("sql", "")),
                     row_count=int(payload.get("row_count", 0)),
@@ -333,11 +359,13 @@ def load_query_log(limit: int = 25) -> list[QueryLogEntry]:
                     used_fallback=bool(payload.get("used_fallback", False)),
                 )
             )
+    if workspace_id is not None:
+        entries = [entry for entry in entries if entry.workspace_id == workspace_id]
     return list(reversed(entries[-limit:]))
 
 
-def build_metrics() -> MetricsResponse:
-    recent = load_query_log(limit=1000)
+def build_metrics(*, workspace_id: str | None = None) -> MetricsResponse:
+    recent = load_query_log(limit=1000, workspace_id=workspace_id)
     total = len(recent)
     if total == 0:
         return MetricsResponse(

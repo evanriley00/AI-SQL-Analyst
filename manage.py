@@ -26,7 +26,7 @@ def init_db() -> None:
 
 def run_evals() -> None:
     initialize_database()
-    result = run_eval_suite()
+    result = run_eval_suite(workspace_id="demo")
     print(json.dumps(result.model_dump(), indent=2))
     if result.failed:
         raise SystemExit(1)

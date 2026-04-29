@@ -19,9 +19,19 @@ const historyList = document.querySelector("#history-list");
 const runEvals = document.querySelector("#run-evals");
 const evalRate = document.querySelector("#eval-rate");
 const evalResults = document.querySelector("#eval-results");
+let clientConfig = {
+  browser_api_key: "dev-api-key",
+  default_workspace_id: "demo",
+};
 
 async function fetchJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const headers = {
+    ...(options.headers || {}),
+  };
+  if (!url.includes("/client-config") && clientConfig.browser_api_key) {
+    headers["X-API-Key"] = clientConfig.browser_api_key;
+  }
+  const response = await fetch(url, { ...options, headers });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload.detail || payload.error || `Request failed: ${response.status}`);
@@ -110,7 +120,7 @@ async function runQuestion(question) {
   const response = await fetchJson("/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, workspace_id: clientConfig.default_workspace_id }),
   });
   renderAnswer(response);
   await refreshMetrics();
@@ -187,6 +197,7 @@ runEvals.addEventListener("click", async () => {
 });
 
 async function boot() {
+  clientConfig = await fetchJson("/client-config");
   const health = await fetchJson("/health");
   modeValue.textContent = health.llm_enabled ? "LLM" : "fallback";
   await refreshMetrics();

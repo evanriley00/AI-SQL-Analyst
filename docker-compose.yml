@@ -7,6 +7,8 @@ services:
       AI_SQL_ANALYST_DATABASE_BACKEND: postgres
       AI_SQL_ANALYST_POSTGRES_DSN: postgresql://ai_sql:ai_sql_password@postgres:5432/ai_sql_analyst
       AI_SQL_ANALYST_QUERY_LOG_PATH: /app/data/query_log.jsonl
+      AI_SQL_ANALYST_API_KEYS: ${AI_SQL_ANALYST_API_KEYS:-dev-api-key}
+      AI_SQL_ANALYST_BROWSER_API_KEY: ${AI_SQL_ANALYST_BROWSER_API_KEY:-dev-api-key}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     ports:
       - "8000:8000"

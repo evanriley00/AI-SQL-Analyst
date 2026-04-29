@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-sql-analyst-postgres
+  namespace: ai-sql-analyst
+spec:
+  selector:
+    app: ai-sql-analyst-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ai-sql-analyst-postgres
+  namespace: ai-sql-analyst
+spec:
+  serviceName: ai-sql-analyst-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-sql-analyst-postgres
+  template:
+    metadata:
+      labels:
+        app: ai-sql-analyst-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: ai_sql_analyst
+            - name: POSTGRES_USER
+              value: ai_sql
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ai-sql-analyst-secrets
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "ai_sql", "-d", "ai_sql_analyst"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "ai_sql", "-d", "ai_sql_analyst"]
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
